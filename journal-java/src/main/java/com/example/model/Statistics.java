@@ -20,7 +20,6 @@ public class Statistics {
     /**
      * 上次时间
      */
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm")
     private LocalDateTime lastTime;
     /**
      * 频率
