@@ -37,24 +37,31 @@
                     v-for="(item, index) in timeline"
                     :key="index"
                     :timestamp="item.time">
-                    <p>{{ item.key }} {{ item.subKey ? (': ' + item.subKey) : '' }}</p>
+                    <p>{{ item.key }} {{ item.subKey !== '-' ? (': ' + item.subKey) : '' }}</p>
                     <p style="color: #888; font-size: 10px; word-break: break-all">{{ item.remark }}</p>
                 </el-timeline-item>
             </el-timeline>
         </el-aside>
-        <el-main>
+        <el-main style="height: calc(100vh - 40px);">
             <el-table :data="tableData" style="width: 100%" row-key="name" >
                 <el-table-column label="名称" prop="name" width="180" />
                 <el-table-column label="次数" prop="count" width="80" />
                 <el-table-column label="上次时间" prop="lastTime" width="180" />
-                <el-table-column label="间隔/h(全部)" prop="rate" width="140" />
-                <el-table-column label="间隔/h(15次)" prop="rate" width="140" />
-                <el-table-column label="间隔/h(5次)" prop="rate" width="140" />
+                <el-table-column label="间隔(全部)" prop="rate" width="140" />
+                <el-table-column label="间隔(15次)" prop="rate15" width="140" />
+                <el-table-column label="间隔(5次)" prop="rate5" width="140" />
                 <el-table-column label="预计下次时间" prop="nextTime" width="180" />
+                <el-table-column label="预计下次时间" width="80">
+                    <template #default="{row}">
+                        <span v-if="!row.nextDuration"></span>
+                        <span v-else-if="row.nextDuration.startsWith('-')" style="color: red">{{ row.nextDuration ?? ' ' }}</span>
+                        <span v-else style="color: green">{{ row.nextDuration ?? ' ' }}</span>
+                    </template>
+                </el-table-column>
                 <el-table-column label="操作">
                     <template #default="{row}">
-                        <el-button @click="inputKey=row.name">添加</el-button>
-                        <el-button @click="getTimeline(row.name)">查看</el-button>
+                        <el-button @click="toInput(row.name, row.parent)">添加</el-button>
+                        <el-button @click="getTimeline(row.name, row.parent)">查看</el-button>
                     </template>
                 </el-table-column>
             </el-table>
@@ -83,20 +90,28 @@ import { ElMessage } from 'element-plus'
 const tableData = ref([])
 const timeline = ref([])
 const inputKey = ref('')
-const inputSubKey = ref('')
+const inputSubKey = ref('-')
 const inputRemark = ref('')
 const inputKeys = computed(() => {
     return tableData.value.map(item => item.name)
 })
 const inputSubKeys = computed(() => {
-    return tableData.value.filter(item => item.name===inputKey.value)[0].children.map(item => item.name)
+    return ['-', ...tableData.value.filter(item => item.name===inputKey.value)[0].children.map(item => item.name).filter(name => name !== '-')]
 })
 const keyTimeline = ref([])
 
 const update = data => {
+    const formatRate = rate => rate !== 0 ? (`${Math.floor(rate/24)}d` + (rate % 24) + 'H') : '-'
     if (data.data.success) {
         timeline.value = data.data.timeline
-        tableData.value = data.data.statistics
+        tableData.value = data.data.statistics.map(data => {
+            return {
+                ...data,
+                rate: formatRate(data.rate),
+                rate5: formatRate(data.rate5),
+                rate15: formatRate(data.rate15)
+            }
+        })
         ElMessage('refresh complate')
     } else {
         ElMessage.error(data.data.msg)
@@ -124,7 +139,7 @@ const submit = () => {
         .then(data => {
             update(data)
             inputKey.value = ''
-            inputSubKey.value = ''
+            inputSubKey.value = '-'
             inputRemark.value = ''
         })
         .catch(e => {
@@ -133,9 +148,19 @@ const submit = () => {
         })
 }
 
-const getTimeline = key => {
+const toInput = (name, parent) => {
+    if (parent) {
+        inputKey.value = parent
+        inputSubKey.value = name
+    } else {
+        inputKey.value = name
+        inputSubKey.value = '-'
+    }
+}
+
+const getTimeline = (name, parent) => {
     axios
-        .get(`/getLine?key=${key}`)
+        .get(parent? `/getLine?key=${parent}&subKey=${name}`:`/getLine?key=${name}`)
         .then(data => {
             keyTimeline.value = data.data
         })

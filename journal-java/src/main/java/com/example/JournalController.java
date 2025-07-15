@@ -21,14 +21,17 @@ public class JournalController {
     }
 
     @GetMapping("/getLine")
-    public List<Item> getItem(@RequestParam("key") String key) {
-        return journalService.get(key);
+    public List<Item> getItem(@RequestParam("key") String key, @RequestParam(value = "subKey", required = false) String subKey) {
+        return journalService.get(key, subKey);
     }
 
     @PostMapping("/submit")
     public Result submit(@RequestBody Item item) {
         Objects.requireNonNull(item);
         Objects.requireNonNull(item.getKey());
+        if (item.getSubKey() == null || item.getSubKey().isBlank()) {
+            item.setSubKey("-");
+        }
         if (item.getTime() == null) {
             item.setTime(LocalDateTime.now().withMinute(0).withSecond(0).withNano(0));
         }
